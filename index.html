@@ -6,11 +6,11 @@
     <title>匿名星空 - 自由的灵魂</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root { --accent: #5f91ff; --bg: #000; }
+        :root { --accent: #5f91ff; }
         body { background: radial-gradient(circle at center, #1a1a2e 0%, #000 100%); color: #fff; margin: 0; font-family: -apple-system, sans-serif; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         
-        /* 首页特效：星空感 UI */
-        #home-ui { text-align: center; z-index: 100; padding: 20px; transition: 0.8s; }
+        /* 首页特效：文字流光 */
+        #home-ui { text-align: center; z-index: 100; transition: 0.8s; }
         .welcome-title { 
             font-size: 1.6rem; font-weight: 200; letter-spacing: 5px; margin-bottom: 50px; line-height: 1.6;
             background: linear-gradient(120deg, #fff 10%, var(--accent) 50%, #fff 90%);
@@ -18,84 +18,87 @@
             animation: flow 5s linear infinite;
         }
         @keyframes flow { to { background-position: 200% center; } }
-        .enter-btn { padding: 18px 50px; background: transparent; border: 1px solid rgba(255,255,255,0.4); color: #fff; border-radius: 40px; cursor: pointer; font-size: 1rem; backdrop-filter: blur(10px); transition: 0.3s; box-shadow: 0 0 20px rgba(95,145,255,0.1); }
-        .enter-btn:hover { border-color: #fff; background: rgba(255,255,255,0.05); }
+        .enter-btn { padding: 18px 50px; background: transparent; border: 1px solid rgba(255,255,255,0.4); color: #fff; border-radius: 40px; cursor: pointer; font-size: 1rem; backdrop-filter: blur(10px); }
 
         /* 聊天界面 */
-        #chat-ui { display: none; flex-direction: column; width: 92vw; max-width: 500px; height: 90vh; z-index: 100; }
-        #status { text-align: center; font-size: 12px; color: var(--accent); margin-bottom: 10px; height: 20px; letter-spacing: 1px; }
-        #msg-box { flex: 1; background: rgba(255,255,255,0.04); border-radius: 25px; border: 1px solid rgba(255,255,255,0.1); overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 12px; backdrop-filter: blur(15px); }
+        #chat-ui { display: none; flex-direction: column; width: 92vw; max-width: 500px; height: 92vh; z-index: 100; }
+        #status { text-align: center; font-size: 11px; color: var(--accent); margin-bottom: 8px; opacity: 0.7; }
+        #msg-box { flex: 1; background: rgba(255,255,255,0.05); border-radius: 25px; border: 1px solid rgba(255,255,255,0.1); overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 12px; backdrop-filter: blur(15px); }
         
-        /* 气泡样式 */
-        .msg { padding: 12px 18px; border-radius: 20px; max-width: 80%; font-size: 15px; line-height: 1.4; word-break: break-all; position: relative; }
-        .me { background: var(--accent); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .msg { padding: 12px 18px; border-radius: 20px; max-width: 80%; font-size: 15px; word-break: break-all; }
+        .me { background: var(--accent); align-self: flex-end; border-bottom-right-radius: 4px; }
         .other { background: rgba(255,255,255,0.15); align-self: flex-start; border-bottom-left-radius: 4px; }
 
-        /* 输入交互区 */
         .input-bar { display: flex; align-items: center; gap: 10px; padding: 15px 0; }
-        #v-btn { width: 48px; height: 48px; border-radius: 50%; border: none; background: rgba(255,255,255,0.1); color: #fff; font-size: 20px; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; }
-        #v-btn.rec { background: #ff4d4d; box-shadow: 0 0 15px rgba(255,77,77,0.5); transform: scale(1.1); }
-        input { flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); padding: 12px 18px; border-radius: 25px; color: #fff; outline: none; font-size: 16px; }
+        #v-btn { width: 48px; height: 48px; border-radius: 50%; border: none; background: rgba(255,255,255,0.1); color: #fff; font-size: 20px; cursor: pointer; }
+        #v-btn.rec { background: #ff4d4d; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,77,77,0.4); } 70% { box-shadow: 0 0 0 10px rgba(255,77,77,0); } }
+        input { flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); padding: 12px 18px; border-radius: 25px; color: #fff; outline: none; }
     </style>
 </head>
 <body>
     <div id="home-ui">
         <h1 class="welcome-title">这里欢迎每一个渴望自由的灵魂</h1>
-        <button class="enter-btn" onclick="start()">开启灵魂契合</button>
+        <button class="enter-btn" onclick="startEngine()">开启灵魂共鸣</button>
     </div>
 
     <div id="chat-ui">
         <div id="status">正在同步星轨...</div>
         <div id="msg-box"></div>
-        <div class="input-bar">
-            <button id="v-btn" ontouchstart="recOn(event)" ontouchend="recOff(event)" onmousedown="recOn(event)" onmouseup="recOff(event)">🎤</button>
-            <input type="text" id="ipt" placeholder="此刻想说什么..." autocomplete="off">
-            <button onclick="doSend()" style="background:transparent; border:none; color:var(--accent); font-weight:bold; padding:0 10px; font-size:16px;">发送</button>
+        <div class="input-area">
+            <div class="input-bar">
+                <button id="v-btn" ontouchstart="rOn(event)" ontouchend="rOff(event)" onmousedown="rOn(event)" onmouseup="rOff(event)">🎤</button>
+                <input type="text" id="ipt" placeholder="输入..." autocomplete="off">
+                <button onclick="doSend()" style="background:transparent; border:none; color:var(--accent); font-weight:bold; font-size:16px;">发送</button>
+            </div>
+            <div style="text-align:center;"><button onclick="location.reload()" style="background:none; border:none; color:rgba(255,255,255,0.2); font-size:10px;">切断并重连</button></div>
         </div>
-        <button onclick="location.reload()" style="background:none; border:none; color:rgba(255,255,255,0.2); font-size:11px; margin-top:5px; cursor:pointer;">断开当前信号</button>
     </div>
 
     <script>
-        let peer, conn, recorder, chunks = [];
-        // A/B 角色互斥逻辑，确保两端能准确碰撞
-        const ID_A = "SOUL_VOICE_A";
-        const ID_B = "SOUL_VOICE_B";
+        let peer, conn, recorder, chunks = [], heartTimer;
+        // 保持唯一配对 ID
+        const IDA = "SOUL_X_2026_A"; const IDB = "SOUL_X_2026_B";
 
-        function start() {
-            document.getElementById('home-ui').style.opacity = '0';
-            setTimeout(() => {
-                document.getElementById('home-ui').style.display = 'none';
-                document.getElementById('chat-ui').style.display = 'flex';
-            }, 500);
-
-            peer = new Peer(ID_A);
-            peer.on('open', () => {
-                updateStatus("正在寻找共鸣...");
-                tryLink(ID_B);
-            });
-            peer.on('connection', c => { if(!conn) bind(c); });
+        function startEngine() {
+            document.getElementById('home-ui').style.display = 'none';
+            document.getElementById('chat-ui').style.display = 'flex';
+            
+            // 每次强制新建 Peer
+            peer = new Peer(IDA, { debug: 1 });
+            peer.on('open', () => { updateStatus("搜寻中..."); link(IDB); });
+            peer.on('connection', c => bind(c));
             peer.on('error', e => {
                 if(e.type === 'unavailable-id') {
-                    peer = new Peer(ID_B);
-                    peer.on('open', () => { updateStatus("发现频率，正在对准..."); tryLink(ID_A); });
+                    peer = new Peer(IDB, { debug: 1 });
+                    peer.on('open', () => { updateStatus("发现信号..."); link(IDA); });
                 }
             });
         }
 
-        function tryLink(target) {
-            const timer = setInterval(() => {
-                if (conn && conn.open) return clearInterval(timer);
+        function link(target) {
+            const t = setInterval(() => {
+                if (conn && conn.open) return clearInterval(t);
                 let c = peer.connect(target, { reliable: true });
-                c.on('open', () => { bind(c); clearInterval(timer); });
-            }, 1500);
+                c.on('open', () => { bind(c); clearInterval(t); });
+            }, 1000);
         }
 
         function bind(c) {
+            if(conn) return; 
             conn = c;
             updateStatus("✨ 灵魂契合成功");
-            // 核心修复：监听数据接收
+            
+            // 启动心跳检测，防止虚连
+            if(heartTimer) clearInterval(heartTimer);
+            heartTimer = setInterval(() => {
+                if(conn && conn.open) conn.send({ type: 'hb' });
+                else updateStatus("🔴 信号丢失，正在自动对齐...");
+            }, 3000);
+
             conn.on('data', data => {
-                if(data.type === 'audio') {
+                if(data.type === 'hb') return; // 过滤心跳包
+                if(data.type === 'voice') {
                     const blob = new Blob([data.data], { type: 'audio/webm' });
                     render(blob, false, true);
                 } else {
@@ -108,40 +111,33 @@
         function doSend() {
             const el = document.getElementById('ipt');
             const val = el.value.trim();
-            if(!val) return;
-            
-            // 核心修复：检查 conn.open 确保数据真正发给对方
-            if(conn && conn.open) {
-                conn.send(val); 
-                render(val, true, false);
-                el.value = '';
-            } else {
-                updateStatus("🔴 连接已中断，正在尝试重连...");
-            }
+            if(!val || !conn || !conn.open) return;
+            conn.send(val);
+            render(val, true, false);
+            el.value = '';
         }
 
-        async function recOn(e) {
+        async function rOn(e) {
             e.preventDefault();
             try {
                 const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-                recorder = new MediaRecorder(s);
-                chunks = [];
+                recorder = new MediaRecorder(s); chunks = [];
                 recorder.ondataavailable = ev => chunks.push(ev.data);
                 recorder.onstop = async () => {
                     const b = new Blob(chunks, { type: 'audio/webm' });
+                    const buffer = await b.arrayBuffer();
                     if(conn && conn.open) {
-                        const buffer = await b.arrayBuffer(); // 转Buffer提高成功率
-                        conn.send({ type: 'audio', data: buffer });
+                        conn.send({ type: 'voice', data: buffer });
                         render(b, true, true);
                     }
                     s.getTracks().forEach(t => t.stop());
                 };
                 recorder.start();
                 document.getElementById('v-btn').classList.add('rec');
-            } catch(err) { alert("麦克风未授权"); }
+            } catch(err) { alert("麦克风授权失败"); }
         }
 
-        function recOff(e) {
+        function rOff(e) {
             e.preventDefault();
             if(recorder && recorder.state === 'recording') {
                 recorder.stop();
@@ -153,19 +149,11 @@
             const box = document.getElementById('msg-box');
             const div = document.createElement('div');
             div.className = `msg ${isMe ? 'me' : 'other'}`;
-            
             if(isVoice) {
                 const url = URL.createObjectURL(content instanceof Blob ? content : new Blob([content]));
                 div.innerHTML = `🔊 语音消息 (点击播放)`;
-                div.style.cursor = "pointer";
-                div.onclick = () => { 
-                    const audio = new Audio(url);
-                    audio.play().catch(() => alert("请确认关闭手机静音开关"));
-                };
-            } else {
-                div.innerText = content;
-            }
-            
+                div.onclick = () => { new Audio(url).play().catch(() => alert("请关闭静音开关")); };
+            } else { div.innerText = content; }
             box.appendChild(div);
             box.scrollTop = box.scrollHeight;
         }
