@@ -16,17 +16,14 @@
         .enter-btn { padding: 15px 40px; background: transparent; border: 1px solid white; color: white; cursor: pointer; border-radius: 30px; font-size: 1rem; }
 
         #chat-container { display: none; flex-direction: column; width: 92%; max-width: 500px; height: 85vh; z-index: 20; }
-        #chat-box { flex: 1; background: rgba(255,255,255,0.05); overflow-y: auto; padding: 15px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; backdrop-filter: blur(15px); display: none; flex-direction: column; }
+        #chat-box { flex: 1; background: rgba(255,255,255,0.05); overflow-y: auto; padding: 15px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; backdrop-filter: blur(15px); display: flex; flex-direction: column; }
         
-        #waiting-ui { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-        .loader { border: 2px solid rgba(255,255,255,0.1); border-top: 2px solid #5f91ff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        .input-group { display: none; gap: 8px; padding-bottom: 20px; }
+        .input-group { display: flex; gap: 8px; padding-bottom: 20px; }
         input { flex: 1; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white; font-size: 16px; outline: none; }
         button#send { background: #5f91ff; color: white; border: none; padding: 0 20px; border-radius: 12px; font-weight: bold; cursor: pointer; }
         
-        .msg { margin-bottom: 12px; padding: 12px; border-radius: 15px; max-width: 80%; font-size: 15px; line-height: 1.4; }
+        .msg { margin-bottom: 12px; padding: 12px; border-radius: 15px; max-width: 80%; font-size: 15px; line-height: 1.4; animation: pop 0.3s ease; }
+        @keyframes pop { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
         .me { background: #5f91ff; align-self: flex-end; border-bottom-right-radius: 2px; }
         .other { background: rgba(255,255,255,0.12); align-self: flex-start; border-bottom-left-radius: 2px; }
     </style>
@@ -35,19 +32,16 @@
     <div class="night"><div class="shooting_star"></div></div>
     <div id="main-ui">
         <h1 style="font-weight:200; letter-spacing:5px;">寻找星空下的另一个灵魂</h1>
-        <button class="enter-btn" onclick="startQueue()">开启缘分匹配</button>
+        <button class="enter-btn" onclick="fastMatch()">开启即刻匹配</button>
     </div>
 
     <div id="chat-container">
-        <div id="waiting-ui">
-            <div class="loader"></div>
-            <p id="match-status">正在连接星空...</p>
-        </div>
+        <div id="status-bar" style="text-align:center; font-size:12px; color:#888; margin-bottom:10px;">已加密连接至匿名星空</div>
         <div id="chat-box"></div>
-        <div class="input-group" id="input-area">
+        <div class="input-group">
             <input type="text" id="ipt" placeholder="输入你想说的..." autocomplete="off">
             <button id="send" onclick="doSend()">发送</button>
-            <button onclick="location.reload()" style="background:transparent; color:#ff4d4d; border:none; font-size:12px; cursor:pointer; margin-left:5px;">断开</button>
+            <button onclick="location.reload()" style="background:transparent; color:#ff4d4d; border:none; font-size:12px; cursor:pointer;">离开</button>
         </div>
     </div>
 
@@ -55,52 +49,32 @@
         const pubnub = new PubNub({
             publishKey: 'pub-c-48098c76-50d4-469b-8212-076f8e75294e',
             subscribeKey: 'sub-c-134e626e-4421-11eb-a5a4-325b0351f2f8',
-            userId: "Soul_" + Math.random().toString(36).substring(7)
+            userId: "User_" + Math.random().toString(36).substring(7)
         });
 
-        const LOBBY_CHAN = "global_waiting_lobby_v1";
-        let myRoom = "";
+        let currentRoom = "";
 
-        async function startQueue() {
+        function fastMatch() {
             document.getElementById('main-ui').style.display = 'none';
             document.getElementById('chat-container').style.display = 'flex';
             
-            // 步骤1：检查大厅里有多少人
-            const res = await pubnub.hereNow({ channels: [LOBBY_CHAN] });
-            const count = res.totalOccupancy;
+            // 核心逻辑：使用当前时间（每30秒一个循环）作为房间种子
+            // 测试阶段：我们用较长的时间片（30秒），确保你两台设备能进同一个房
+            // 以后几十万人时：把 30000 改成 1000，实现秒级匹配
+            const timeSeed = Math.floor(Date.now() / 30000); 
+            currentRoom = "room_v8_" + timeSeed;
 
-            // 步骤2：根据人数分配房间（2人一组）
-            const roomID = Math.floor(count / 2) + 1;
-            myRoom = "private_room_" + roomID;
-
-            // 步骤3：订阅大厅（占位）和自己的私密房
-            pubnub.subscribe({ 
-                channels: [LOBBY_CHAN, myRoom],
-                withPresence: true 
-            });
-
-            document.getElementById('match-status').innerText = "你已进入 #" + roomID + " 号星空，等待对方加入...";
-
+            pubnub.subscribe({ channels: [currentRoom] });
+            
             pubnub.addListener({
-                presence: (p) => {
-                    // 如果私密房满2人，立即开启聊天
-                    if (p.channel === myRoom && p.occupancy >= 2) {
-                        showChat();
-                    }
-                },
                 message: (m) => {
-                    if (m.publisher !== pubnub.getUserId() && m.channel === myRoom) {
-                        render(m.message, false);
-                    }
+                    if (m.publisher !== pubnub.getUserId()) render(m.message, false);
                 }
             });
-        }
 
-        function showChat() {
-            document.getElementById('waiting-ui').style.display = 'none';
-            document.getElementById('chat-box').style.display = 'flex';
-            document.getElementById('input-area').style.display = 'flex';
-            document.getElementById('ipt').focus();
+            document.getElementById('ipt').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') doSend();
+            });
         }
 
         function render(text, isMe) {
@@ -117,11 +91,9 @@
             const val = ipt.value.trim();
             if (!val) return;
             render(val, true);
-            pubnub.publish({ channel: myRoom, message: val }); //
+            pubnub.publish({ channel: currentRoom, message: val });
             ipt.value = '';
         }
-
-        document.getElementById('ipt').onkeydown = (e) => { if(e.key==='Enter') doSend(); };
     </script>
 </body>
 </html>
