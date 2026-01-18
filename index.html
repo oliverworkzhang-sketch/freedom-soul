@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>自由的灵魂 - 语音版</title>
+    <title>自由的灵魂 - 极速语音版</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%); color: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; overflow: hidden; }
@@ -19,23 +19,20 @@
         #chat-box { flex: 1; background: rgba(255,255,255,0.05); overflow-y: auto; padding: 15px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; backdrop-filter: blur(15px); display: flex; flex-direction: column; }
         
         .input-group { display: flex; gap: 8px; padding-bottom: 20px; align-items: center; }
-        input { flex: 1; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white; outline: none; }
+        input { flex: 1; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white; outline: none; min-width: 0; }
         
-        button { border: none; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button { border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
         #send { background: #5f91ff; color: white; padding: 10px 15px; }
-        #voice-btn { background: rgba(255,255,255,0.15); color: white; padding: 10px 15px; font-size: 18px; }
+        #voice-btn { background: rgba(255,255,255,0.15); color: white; width: 45px; height: 45px; font-size: 20px; flex-shrink: 0; }
         #voice-btn.recording { background: #ff4d4d; animation: pulse 1s infinite; }
-        .disconnect-btn { background: transparent; color: #ff4d4d; font-size: 12px; }
-
-        .msg { margin-bottom: 12px; padding: 12px; border-radius: 15px; max-width: 80%; font-size: 15px; position: relative; }
+        
+        .msg { margin-bottom: 12px; padding: 12px; border-radius: 15px; max-width: 80%; font-size: 15px; }
         .me { background: #5f91ff; align-self: flex-end; border-bottom-right-radius: 2px; }
         .other { background: rgba(255,255,255,0.12); align-self: flex-start; border-bottom-left-radius: 2px; }
         
-        .voice-bubble { display: flex; align-items: center; gap: 10px; cursor: pointer; min-width: 60px; }
-        .voice-icon { width: 12px; height: 12px; background: white; border-radius: 50%; opacity: 0.8; }
-
+        .voice-bubble { display: flex; align-items: center; gap: 8px; cursor: pointer; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        #status-bar { text-align: center; font-size: 11px; color: #5f91ff; margin-bottom: 8px; }
+        #status-bar { text-align: center; font-size: 11px; color: #5f91ff; margin-bottom: 8px; height: 15px; }
     </style>
 </head>
 <body>
@@ -47,18 +44,19 @@
     </div>
 
     <div id="chat-container">
-        <div id="status-bar">寻找信号中...</div>
+        <div id="status-bar">准备连接...</div>
         <div id="chat-box"></div>
         <div class="input-group">
             <button id="voice-btn" onmousedown="startRecord()" onmouseup="stopRecord()" ontouchstart="startRecord()" ontouchend="stopRecord()">🎤</button>
             <input type="text" id="ipt" placeholder="输入或长按语音..." autocomplete="off">
             <button id="send" onclick="doSend()">发送</button>
-            <button class="disconnect-btn" onclick="location.reload()">离开</button>
+            <button onclick="location.reload()" style="background:transparent; color:#ff4d4d; font-size:12px;">离开</button>
         </div>
     </div>
 
     <script>
         let peer, conn, mediaRecorder, audioChunks = [];
+        // 关键修复：改回 30 秒窗口，增加碰撞成功率
         const timeBucket = Math.floor(Date.now() / 30000); 
         const myID = "soul_user_" + timeBucket;
         const peerID = "soul_peer_" + timeBucket;
@@ -69,38 +67,46 @@
             
             peer = new Peer(myID);
             peer.on('open', (id) => {
-                document.getElementById('status-bar').innerText = "等待灵魂感应...";
-                tryConnect(peerID);
+                document.getElementById('status-bar').innerText = "正在呼唤另一个灵魂...";
+                tryConnect();
             });
-            peer.on('connection', (c) => { conn = c; setupChat(); });
+            peer.on('connection', (c) => { 
+                if(!conn) { conn = c; setupChat(); } 
+            });
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
                     peer = new Peer(peerID);
-                    peer.on('open', () => tryConnect(myID));
+                    peer.on('open', tryConnect);
                 }
             });
         }
 
-        function tryConnect(target) {
+        function tryConnect() {
+            const target = (peer.id === myID) ? peerID : myID;
             const timer = setInterval(() => {
                 if (conn) { clearInterval(timer); return; }
                 const c = peer.connect(target);
-                c.on('open', () => { conn = c; setupChat(); clearInterval(timer); });
-            }, 2000);
+                c.on('open', () => { 
+                    conn = c; 
+                    setupChat(); 
+                    clearInterval(timer); 
+                });
+            }, 1500); // 缩短重试间隔，实现秒连
         }
 
         function setupChat() {
-            document.getElementById('status-bar').innerText = "✨ 契合成功，声音已加密";
+            document.getElementById('status-bar').innerText = "✨ 契合成功";
             conn.on('data', (data) => {
-                if (data instanceof ArrayBuffer || data.type === 'voice') {
-                    renderVoice(data.blob || data, false);
+                if (data.type === 'voice') {
+                    renderVoice(data.blob, false);
                 } else {
                     renderText(data, false);
                 }
             });
+            // 对方断开监听
+            conn.on('close', () => location.reload());
         }
 
-        // --- 录音逻辑 ---
         async function startRecord() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -108,13 +114,16 @@
                 audioChunks = [];
                 mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
                 mediaRecorder.onstop = () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    sendVoice(audioBlob);
-                    stream.getTracks().forEach(track => track.stop());
+                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                    if (conn) {
+                        renderVoice(blob, true);
+                        conn.send({ type: 'voice', blob: blob });
+                    }
+                    stream.getTracks().forEach(t => t.stop());
                 };
                 mediaRecorder.start();
                 document.getElementById('voice-btn').classList.add('recording');
-            } catch (err) { alert("请允许麦克风权限以发送语音"); }
+            } catch (e) { alert("请开启麦克风权限"); }
         }
 
         function stopRecord() {
@@ -124,32 +133,22 @@
             }
         }
 
-        function sendVoice(blob) {
-            if (!conn) return;
-            renderVoice(blob, true);
-            // PeerJS 支持直接发送 Blob
-            conn.send({ type: 'voice', blob: blob });
-        }
-
         function renderText(text, isMe) {
             const div = document.createElement('div');
             div.className = `msg ${isMe ? 'me' : 'other'}`;
             div.innerText = text;
-            appendAndScroll(div);
+            appendMsg(div);
         }
 
-        function renderVoice(blobData, isMe) {
-            const blob = blobData instanceof Blob ? blobData : new Blob([blobData], { type: 'audio/webm' });
-            const url = URL.createObjectURL(blob);
+        function renderVoice(blob, isMe) {
+            const url = URL.createObjectURL(blob instanceof Blob ? blob : new Blob([blob]));
             const div = document.createElement('div');
             div.className = `msg ${isMe ? 'me' : 'other'}`;
-            div.innerHTML = `<div class="voice-bubble" onclick="new Audio('${url}').play()">
-                                <span class="voice-icon"></span> 💬 语音消息
-                             </div>`;
-            appendAndScroll(div);
+            div.innerHTML = `<div class="voice-bubble" onclick="new Audio('${url}').play()">🎵 语音消息 (点击播放)</div>`;
+            appendMsg(div);
         }
 
-        function appendAndScroll(el) {
+        function appendMsg(el) {
             const box = document.getElementById('chat-box');
             box.appendChild(el);
             box.scrollTop = box.scrollHeight;
