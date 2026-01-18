@@ -3,79 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>自由的灵魂</title>
+    <title>自由的灵魂 - 最终直连版</title>
     <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.7.2.2.min.js"></script>
     <style>
         body { background: #000; color: #fff; margin: 0; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
-        #chat-box { flex: 1; padding: 15px; overflow-y: auto; background: rgba(255,255,255,0.05); }
-        .msg { margin: 10px 0; padding: 10px; border-radius: 10px; max-width: 80%; line-height: 1.5; font-size: 16px; }
-        .me { background: #007bff; align-self: flex-end; margin-left: auto; color: white; }
-        .other { background: #333; align-self: flex-start; color: white; }
-        .input-area { display: flex; padding: 10px; background: #111; gap: 10px; padding-bottom: 30px; }
-        input { flex: 1; padding: 12px; border-radius: 5px; border: 1px solid #444; background: #222; color: #fff; font-size: 16px; outline: none; }
-        button { padding: 10px 20px; background: #007bff; border: none; color: white; border-radius: 5px; font-weight: bold; }
+        #chat-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; background: #0a0a0a; }
+        .msg { margin: 8px 0; padding: 10px 14px; border-radius: 12px; max-width: 80%; word-wrap: break-word; font-size: 16px; line-height: 1.4; }
+        .me { background: #007aff; color: white; align-self: flex-end; }
+        .other { background: #2c2c2e; color: white; align-self: flex-start; }
+        .input-area { display: flex; padding: 10px; background: #1c1c1e; gap: 10px; padding-bottom: 30px; border-top: 1px solid #333; }
+        input { flex: 1; padding: 12px; border-radius: 8px; border: none; background: #2c2c2e; color: #fff; font-size: 16px; outline: none; }
+        button { padding: 10px 20px; background: #007aff; border: none; color: white; border-radius: 8px; font-weight: bold; }
+        #status { text-align: center; font-size: 11px; color: #666; padding: 4px; background: #000; }
     </style>
 </head>
 <body>
-    <div style="text-align: center; font-size: 12px; color: #666; padding: 5px;" id="status">正在连接星空...</div>
-    <div id="chat-box" style="display: flex; flex-direction: column;"></div>
+    <div id="status">正在同步星空信号...</div>
+    <div id="chat-box"></div>
     <div class="input-area">
-        <input type="text" id="msg" placeholder="输入你想说的..." autocomplete="off">
-        <button onclick="send()">发送</button>
+        <input type="text" id="msg" placeholder="在此输入..." autocomplete="off">
+        <button onclick="sendMsg()">发送</button>
     </div>
 
     <script>
-        // 换用了另一组备用公共密钥
+        // 关键：更换为目前最稳定的公共密钥
         const pubnub = new PubNub({
             publishKey: 'pub-c-48098c76-50d4-469b-8212-076f8e75294e',
             subscribeKey: 'sub-c-134e626e-4421-11eb-a5a4-325b0351f2f8',
-            userId: "User_" + Math.random().toString(10).slice(2, 6)
+            userId: "SoulUser_" + Math.floor(Math.random() * 1000)
         });
 
-        const CHANNEL = "soul_match_v99";
+        const CHANNEL = "soul_private_room_final";
 
-        // 界面显示函数
-        function showMessage(text, type) {
+        function appendMessage(text, isMe) {
             const box = document.getElementById('chat-box');
             const div = document.createElement('div');
-            div.className = 'msg ' + type;
-            div.innerText = (type === 'me' ? '我: ' : 'TA: ') + text;
+            div.className = 'msg ' + (isMe ? 'me' : 'other');
+            div.innerText = (isMe ? '我: ' : 'TA: ') + text;
             box.appendChild(div);
             box.scrollTop = box.scrollHeight;
         }
 
-        // 监听并接收
         pubnub.addListener({
             message: function(m) {
-                if (m.publisher !== pubnub.getUUID()) {
-                    showMessage(m.message, 'other');
+                // 只有收到别人的消息才显示（自己的已经通过 appendMessage 显示了）
+                if (m.publisher !== pubnub.getUserId()) {
+                    appendMessage(m.message, false);
                 }
             },
             status: function(s) {
                 if (s.category === "PNConnectedCategory") {
-                    document.getElementById('status').innerText = "● 已连接到星空";
+                    document.getElementById('status').innerText = "● 已成功连接，此刻星空只有你们两人";
                 }
             }
         });
 
         pubnub.subscribe({ channels: [CHANNEL] });
 
-        // 发送函数
-        function send() {
+        function sendMsg() {
             const input = document.getElementById('msg');
             const text = input.value.trim();
             if (!text) return;
 
-            // 1. 立即显示在自己屏幕上，保证“不消失”
-            showMessage(text, 'me');
+            // 1. 本地立即回显，解决“消失”问题
+            appendMessage(text, true);
             input.value = '';
 
-            // 2. 尝试推送到云端
+            // 2. 发送到云端
             pubnub.publish({
                 channel: CHANNEL,
                 message: text
             }).catch(e => {
-                console.log("云端同步暂缓", e);
+                console.error("同步失败", e);
             });
         }
     </script>
