@@ -1,145 +1,171 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>自由的灵魂</title>
+    <title>匿名星空 - 自由的灵魂</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%); color: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; overflow: hidden; }
-        .night { position: absolute; width: 100%; height: 100%; transform: rotateZ(45deg); pointer-events: none; }
-        .shooting_star { position: absolute; left: 50%; top: 50%; height: 2px; background: linear-gradient(-45deg, #5f91ff, rgba(0,0,255,0)); border-radius: 999px; animation: tail 3s ease-in-out infinite, shooting 3s ease-in-out infinite; }
-        @keyframes tail { 0% { width: 0; } 30% { width: 100px; } 100% { width: 0; } }
-        @keyframes shooting { 0% { transform: translateX(0); } 100% { transform: translateX(300px); } }
+        :root { --main-blue: #5f91ff; }
+        body { background: radial-gradient(circle at center, #1a1a2e 0%, #000 100%); color: #fff; margin: 0; font-family: -apple-system, sans-serif; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         
-        #main-ui { text-align: center; z-index: 100; transition: all 0.5s; }
-        .enter-btn { padding: 15px 40px; background: transparent; border: 1px solid white; color: white; cursor: pointer; border-radius: 30px; font-size: 1rem; box-shadow: 0 0 15px rgba(255,255,255,0.2); }
+        /* 首页 UI 特效 */
+        #home-ui { text-align: center; z-index: 100; animation: fadeIn 1.5s ease; }
+        .welcome-text { 
+            font-size: 1.6rem; font-weight: 200; letter-spacing: 5px; margin-bottom: 50px;
+            background: linear-gradient(120deg, #fff 20%, var(--main-blue) 50%, #fff 80%);
+            background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            animation: shine 5s linear infinite;
+        }
+        @keyframes shine { to { background-position: 200% center; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        #chat-container { display: none; flex-direction: column; width: 92%; max-width: 500px; height: 85vh; z-index: 20; }
-        #chat-box { flex: 1; background: rgba(255,255,255,0.05); overflow-y: auto; padding: 15px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; backdrop-filter: blur(15px); display: flex; flex-direction: column; }
+        .start-btn { 
+            padding: 16px 45px; background: transparent; border: 1px solid rgba(255,255,255,0.4);
+            color: #fff; border-radius: 40px; cursor: pointer; font-size: 1rem;
+            box-shadow: 0 0 20px rgba(95,145,255,0.2); transition: 0.3s;
+        }
+        .start-btn:hover { border-color: #fff; background: rgba(255,255,255,0.05); }
+
+        /* 聊天界面 */
+        #chat-ui { display: none; flex-direction: column; width: 92vw; max-width: 500px; height: 88vh; z-index: 100; }
+        #status-info { text-align: center; font-size: 12px; color: var(--main-blue); margin-bottom: 10px; height: 18px; }
+        #msg-box { flex: 1; background: rgba(255,255,255,0.05); border-radius: 25px; border: 1px solid rgba(255,255,255,0.1); overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; backdrop-filter: blur(10px); }
         
-        .input-group { display: flex; gap: 8px; padding-bottom: 20px; }
-        input { flex: 1; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white; font-size: 16px; outline: none; }
-        button#send { background: #5f91ff; color: white; border: none; padding: 0 20px; border-radius: 12px; font-weight: bold; cursor: pointer; }
-        
-        .msg { margin-bottom: 12px; padding: 12px; border-radius: 15px; max-width: 80%; font-size: 15px; }
-        .me { background: #5f91ff; align-self: flex-end; border-bottom-right-radius: 2px; }
-        .other { background: rgba(255,255,255,0.12); align-self: flex-start; border-bottom-left-radius: 2px; }
-        
-        #status-bar { text-align: center; font-size: 12px; color: #5f91ff; margin-bottom: 10px; height: 20px; }
-        .disconnect-btn { background: rgba(255, 77, 77, 0.2); color: #ff4d4d; border: 1px solid #ff4d4d; padding: 8px 15px; border-radius: 12px; font-size: 12px; cursor: pointer; }
+        /* 气泡 */
+        .msg { padding: 12px 18px; border-radius: 20px; max-width: 80%; font-size: 15px; line-height: 1.4; word-break: break-all; }
+        .me { background: var(--main-blue); align-self: flex-end; border-bottom-right-radius: 4px; }
+        .other { background: rgba(255,255,255,0.15); align-self: flex-start; border-bottom-left-radius: 4px; }
+
+        /* 输入区 */
+        .input-bar { display: flex; align-items: center; gap: 10px; padding: 15px 0; }
+        #v-btn { width: 48px; height: 48px; border-radius: 50%; border: none; background: rgba(255,255,255,0.1); color: #fff; font-size: 20px; cursor: pointer; }
+        #v-btn.active { background: #ff4d4d; box-shadow: 0 0 15px rgba(255,77,77,0.5); }
+        input { flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); padding: 12px 18px; border-radius: 25px; color: #fff; outline: none; }
     </style>
 </head>
 <body>
-    <div class="night"><div class="shooting_star"></div></div>
-    
-    <div id="main-ui">
-        <h1 style="font-weight:200; letter-spacing:5px; margin-bottom:40px;">渴望自由的每一个灵魂</h1>
-        <button class="enter-btn" onclick="startMatching()">开启即刻匹配</button>
+    <div id="home-ui">
+        <h1 class="welcome-text">这里欢迎每一个渴望自由的灵魂</h1>
+        <button class="start-btn" onclick="openGate()">开启灵魂匹配</button>
     </div>
 
-    <div id="chat-container">
-        <div id="status-bar">正在寻找同步信号...</div>
-        <div id="chat-box"></div>
-        <div class="input-group">
-            <input type="text" id="ipt" placeholder="输入你想说的..." autocomplete="off">
-            <button id="send" onclick="doSend()">发送</button>
-            <button class="disconnect-btn" onclick="manualDisconnect()">断开</button>
+    <div id="chat-ui">
+        <div id="status-info">星轨同步中...</div>
+        <div id="msg-box"></div>
+        <div class="input-bar">
+            <button id="v-btn" onmousedown="recStart(event)" onmouseup="recEnd(event)" ontouchstart="recStart(event)" ontouchend="recEnd(event)">🎤</button>
+            <input type="text" id="ipt" placeholder="输入灵感..." autocomplete="off">
+            <button onclick="handleSend()" style="background:transparent; border:none; color:var(--main-blue); font-weight:bold; font-size:16px; padding:0 10px;">发送</button>
         </div>
+        <button onclick="location.reload()" style="background:none; border:none; color:rgba(255,255,255,0.2); font-size:11px; margin-top:5px;">切断当前感应</button>
     </div>
 
     <script>
-        let peer, conn;
-        // 匹配逻辑保持不变，确保 30 秒内点击的必进
-        const timeBucket = Math.floor(Date.now() / 30000); 
-        const myID = "soul_user_" + timeBucket;
-        const peerID = "soul_peer_" + timeBucket;
+        let peer, conn, recorder, chunks = [];
+        const ID_A = "SOUL_A_2026"; 
+        const ID_B = "SOUL_B_2026";
 
-        function startMatching() {
-            document.getElementById('main-ui').style.display = 'none';
-            document.getElementById('chat-container').style.display = 'flex';
-            document.getElementById('chat-box').innerHTML = ''; // 清空聊天记录
+        function openGate() {
+            document.getElementById('home-ui').style.display = 'none';
+            document.getElementById('chat-ui').style.display = 'flex';
             
-            peer = new Peer(myID);
-            
-            peer.on('open', (id) => {
-                document.getElementById('status-bar').innerText = "已进入星空，等待灵魂感应...";
-                connectToPeer(peerID);
+            peer = new Peer(ID_A);
+            peer.on('open', () => {
+                setStatus("寻找灵魂频率...");
+                link(ID_B);
             });
-
-            peer.on('connection', (c) => {
-                conn = c;
-                setupChatLogic();
-            });
-
-            peer.on('error', (err) => {
-                if (err.type === 'unavailable-id') {
-                    peer = new Peer(peerID);
-                    peer.on('open', () => connectToPeer(myID));
+            peer.on('connection', c => { if(!conn) initConn(c); });
+            peer.on('error', e => {
+                if(e.type === 'unavailable-id') {
+                    peer = new Peer(ID_B);
+                    peer.on('open', () => { setStatus("频率已发现，正在对准..."); link(ID_A); });
                 }
             });
         }
 
-        function connectToPeer(targetID) {
-            const retry = setInterval(() => {
-                if (conn) { clearInterval(retry); return; }
-                const c = peer.connect(targetID);
-                c.on('open', () => {
-                    conn = c;
-                    setupChatLogic();
-                    clearInterval(retry);
-                });
-            }, 2000);
+        function link(target) {
+            const t = setInterval(() => {
+                if (conn && conn.open) return clearInterval(t);
+                let c = peer.connect(target, { reliable: true });
+                c.on('open', () => { initConn(c); clearInterval(t); });
+            }, 1200);
         }
 
-        function setupChatLogic() {
-            document.getElementById('status-bar').innerText = "✨ 灵魂契合成功";
-            
-            // 监听对方发来的消息
-            conn.on('data', (data) => render(data, false));
-            
-            // 重要：监听对方主动断开连接
-            conn.on('close', () => {
-                alert("对方已离开，缘分已尽。");
-                resetToHome();
+        function initConn(c) {
+            conn = c;
+            setStatus("✨ 契合成功");
+            conn.on('data', data => {
+                if(data.type === 'voice') renderMsg(data.blob, false, true);
+                else renderMsg(data, false, false);
             });
+            conn.on('close', () => location.reload());
         }
 
-        function manualDisconnect() {
-            if (conn) {
-                conn.close(); // 关闭连接
+        // --- 核心修复：确保消息 100% 送出 ---
+        function handleSend() {
+            const ipt = document.getElementById('ipt');
+            const val = ipt.value.trim();
+            if(!val) return;
+            
+            if(conn && conn.open) {
+                conn.send(val);
+                renderMsg(val, true, false);
+                ipt.value = '';
+            } else {
+                setStatus("🔴 信号波动，尝试重连...");
             }
-            resetToHome();
         }
 
-        function resetToHome() {
-            if (peer) {
-                peer.destroy(); // 销毁 Peer 实例
+        async function recStart(e) {
+            e.preventDefault();
+            try {
+                const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+                recorder = new MediaRecorder(s);
+                chunks = [];
+                recorder.ondataavailable = ev => chunks.push(ev.data);
+                recorder.onstop = async () => {
+                    const blob = new Blob(chunks, { type: 'audio/webm' });
+                    if(conn && conn.open) {
+                        const buffer = await blob.arrayBuffer(); // 转Buffer发送
+                        conn.send({ type: 'voice', blob: buffer });
+                        renderMsg(blob, true, true);
+                    }
+                    s.getTracks().forEach(t => t.stop());
+                };
+                recorder.start();
+                document.getElementById('v-btn').classList.add('active');
+            } catch(err) { alert("麦克风未授权"); }
+        }
+
+        function recEnd(e) {
+            e.preventDefault();
+            if(recorder && recorder.state === 'recording') {
+                recorder.stop();
+                document.getElementById('v-btn').classList.remove('active');
             }
-            conn = null;
-            document.getElementById('main-ui').style.display = 'block';
-            document.getElementById('chat-container').style.display = 'none';
         }
 
-        function render(text, isMe) {
-            const box = document.getElementById('chat-box');
+        function renderMsg(content, isMe, isVoice) {
+            const box = document.getElementById('msg-box');
             const div = document.createElement('div');
-            div.className = 'msg ' + (isMe ? 'me' : 'other');
-            div.innerText = text;
+            div.className = `msg ${isMe ? 'me' : 'other'}`;
+            
+            if(isVoice) {
+                const url = URL.createObjectURL(content instanceof Blob ? content : new Blob([content]));
+                div.innerHTML = `🎵 语音消息 (点击播放)`;
+                div.style.cursor = "pointer";
+                div.onclick = () => { new Audio(url).play().catch(() => alert("请关闭静音模式")); };
+            } else {
+                div.innerText = content;
+            }
+            
             box.appendChild(div);
             box.scrollTop = box.scrollHeight;
         }
 
-        function doSend() {
-            const ipt = document.getElementById('ipt');
-            const val = ipt.value.trim();
-            if (!val || !conn) return;
-            render(val, true);
-            conn.send(val);
-            ipt.value = '';
-        }
-
-        document.getElementById('ipt').onkeydown = (e) => { if(e.key==='Enter') doSend(); };
+        function setStatus(s) { document.getElementById('status-info').innerText = s; }
+        document.getElementById('ipt').onkeydown = e => { if(e.key === 'Enter') handleSend(); };
     </script>
 </body>
 </html>
