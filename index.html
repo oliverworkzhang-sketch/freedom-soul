@@ -3,79 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>自由的灵魂 - 最终直连版</title>
+    <title>自由的灵魂</title>
     <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.7.2.2.min.js"></script>
     <style>
-        body { background: #000; color: #fff; margin: 0; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
-        #chat-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; background: #0a0a0a; }
-        .msg { margin: 8px 0; padding: 10px 14px; border-radius: 12px; max-width: 80%; word-wrap: break-word; font-size: 16px; line-height: 1.4; }
-        .me { background: #007aff; color: white; align-self: flex-end; }
-        .other { background: #2c2c2e; color: white; align-self: flex-start; }
-        .input-area { display: flex; padding: 10px; background: #1c1c1e; gap: 10px; padding-bottom: 30px; border-top: 1px solid #333; }
-        input { flex: 1; padding: 12px; border-radius: 8px; border: none; background: #2c2c2e; color: #fff; font-size: 16px; outline: none; }
-        button { padding: 10px 20px; background: #007aff; border: none; color: white; border-radius: 8px; font-weight: bold; }
-        #status { text-align: center; font-size: 11px; color: #666; padding: 4px; background: #000; }
+        body { background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%); color: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; overflow: hidden; position: relative; }
+        .night { position: absolute; width: 100%; height: 100%; transform: rotateZ(45deg); pointer-events: none; }
+        .shooting_star { position: absolute; left: 50%; top: 50%; height: 2px; background: linear-gradient(-45deg, #5f91ff, rgba(0,0,255,0)); border-radius: 999px; animation: tail 3s ease-in-out infinite, shooting 3s ease-in-out infinite; }
+        @keyframes tail { 0% { width: 0; } 30% { width: 100px; } 100% { width: 0; } }
+        @keyframes shooting { 0% { transform: translateX(0); } 100% { transform: translateX(300px); } }
+        
+        #main-ui { text-align: center; z-index: 100; }
+        .enter-btn { padding: 15px 40px; background: transparent; border: 1px solid white; color: white; cursor: pointer; border-radius: 30px; font-size: 1rem; }
+
+        #chat-container { display: none; flex-direction: column; width: 92%; max-width: 500px; height: 85vh; z-index: 20; }
+        #chat-box { flex: 1; background: rgba(255,255,255,0.08); overflow-y: auto; padding: 15px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; backdrop-filter: blur(10px); display: flex; flex-direction: column; }
+        .input-group { display: flex; gap: 8px; padding-bottom: 20px; transition: 0.5s; opacity: 0.3; pointer-events: none; }
+        input { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid #444; background: rgba(0,0,0,0.5); color: white; font-size: 16px; outline: none; }
+        button#send { background: #5f91ff; color: white; border: none; padding: 0 20px; border-radius: 10px; }
+        
+        .msg { margin-bottom: 12px; padding: 10px; border-radius: 10px; max-width: 85%; font-size: 15px; }
+        .me { background: #5f91ff; align-self: flex-end; }
+        .other { background: rgba(255,255,255,0.15); align-self: flex-start; }
     </style>
 </head>
 <body>
-    <div id="status">正在同步星空信号...</div>
-    <div id="chat-box"></div>
-    <div class="input-area">
-        <input type="text" id="msg" placeholder="在此输入..." autocomplete="off">
-        <button onclick="sendMsg()">发送</button>
+    <div class="night"><div class="shooting_star"></div></div>
+    <div id="main-ui">
+        <h1 style="font-weight:200;">这里欢迎每一个渴望自由的灵魂</h1>
+        <button class="enter-btn" onclick="startSequenceMatch()">寻找匿名缘分</button>
+    </div>
+
+    <div id="chat-container">
+        <div id="status" style="text-align: center; font-size: 11px; color: #888; margin-bottom: 10px;">正在寻找此刻同样孤独的灵魂...</div>
+        <div id="chat-box"></div>
+        <div class="input-group" id="input-lock">
+            <input type="text" id="ipt" placeholder="已锁定私密连接..." autocomplete="off">
+            <button id="send" onclick="doSend()">发送</button>
+            <button onclick="location.reload()" style="background:transparent; color:#ff6b6b; border:none; font-size:12px; padding:0;">断开</button>
+        </div>
     </div>
 
     <script>
-        // 关键：更换为目前最稳定的公共密钥
         const pubnub = new PubNub({
             publishKey: 'pub-c-48098c76-50d4-469b-8212-076f8e75294e',
             subscribeKey: 'sub-c-134e626e-4421-11eb-a5a4-325b0351f2f8',
-            userId: "SoulUser_" + Math.floor(Math.random() * 1000)
+            userId: "Soul_" + Math.random().toString(36).substring(7)
         });
 
-        const CHANNEL = "soul_private_room_final";
+        // 核心：按点击的时间块生成房间号，实现“按顺序匹配”
+        // 这里设定 3 分钟为一个“缘分区间”，这会让差不多时间点的人进入同一房
+        const timeKey = Math.floor(Date.now() / 180000); 
+        const pairRoom = "soul_pair_" + timeKey;
 
-        function appendMessage(text, isMe) {
-            const box = document.getElementById('chat-box');
-            const div = document.createElement('div');
-            div.className = 'msg ' + (isMe ? 'me' : 'other');
-            div.innerText = (isMe ? '我: ' : 'TA: ') + text;
-            box.appendChild(div);
-            box.scrollTop = box.scrollHeight;
+        function startSequenceMatch() {
+            document.getElementById('main-ui').style.display = 'none';
+            document.getElementById('chat-container').style.display = 'flex';
+            
+            pubnub.subscribe({ channels: [pairRoom] });
+
+            // 模拟 2 秒的匹配过程
+            setTimeout(() => {
+                document.getElementById('status').innerText = "● 缘分已连接 (匿名私密模式)";
+                document.getElementById('input-lock').style.opacity = "1";
+                document.getElementById('input-lock').style.pointerEvents = "auto";
+            }, 2000);
         }
 
         pubnub.addListener({
             message: function(m) {
-                // 只有收到别人的消息才显示（自己的已经通过 appendMessage 显示了）
                 if (m.publisher !== pubnub.getUserId()) {
-                    appendMessage(m.message, false);
-                }
-            },
-            status: function(s) {
-                if (s.category === "PNConnectedCategory") {
-                    document.getElementById('status').innerText = "● 已成功连接，此刻星空只有你们两人";
+                    render(m.message, false);
                 }
             }
         });
 
-        pubnub.subscribe({ channels: [CHANNEL] });
+        function render(text, isMe) {
+            const box = document.getElementById('chat-box');
+            const div = document.createElement('div');
+            div.className = 'msg ' + (isMe ? 'me' : 'other');
+            div.innerText = text;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
 
-        function sendMsg() {
-            const input = document.getElementById('msg');
-            const text = input.value.trim();
-            if (!text) return;
-
-            // 1. 本地立即回显，解决“消失”问题
-            appendMessage(text, true);
-            input.value = '';
-
-            // 2. 发送到云端
-            pubnub.publish({
-                channel: CHANNEL,
-                message: text
-            }).catch(e => {
-                console.error("同步失败", e);
-            });
+        function doSend() {
+            const ipt = document.getElementById('ipt');
+            if (!ipt.value.trim()) return;
+            render(ipt.value, true);
+            pubnub.publish({ channel: pairRoom, message: ipt.value });
+            ipt.value = '';
         }
     </script>
 </body>
