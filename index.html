@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>自由的灵魂</title>
-    <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.7.2.2.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%); color: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; overflow: hidden; }
         .night { position: absolute; width: 100%; height: 100%; transform: rotateZ(45deg); pointer-events: none; }
@@ -22,70 +22,86 @@
         input { flex: 1; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white; font-size: 16px; outline: none; }
         button#send { background: #5f91ff; color: white; border: none; padding: 0 20px; border-radius: 12px; font-weight: bold; cursor: pointer; }
         
-        .msg { margin-bottom: 12px; padding: 12px; border-radius: 15px; max-width: 80%; font-size: 15px; line-height: 1.4; animation: pop 0.3s ease; }
-        @keyframes pop { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        .msg { margin-bottom: 12px; padding: 12px; border-radius: 15px; max-width: 80%; font-size: 15px; line-height: 1.4; }
         .me { background: #5f91ff; align-self: flex-end; border-bottom-right-radius: 2px; }
         .other { background: rgba(255,255,255,0.12); align-self: flex-start; border-bottom-left-radius: 2px; }
+        #status-bar { text-align: center; font-size: 12px; color: #5f91ff; margin-bottom: 10px; }
     </style>
 </head>
 <body>
     <div class="night"><div class="shooting_star"></div></div>
     <div id="main-ui">
         <h1 style="font-weight:200; letter-spacing:5px;">寻找星空下的另一个灵魂</h1>
-        <button class="enter-btn" onclick="goConnect()">开启缘分匹配</button>
+        <button class="enter-btn" onclick="startMatching()">开启即刻匹配</button>
     </div>
 
     <div id="chat-container">
-        <div id="status-bar" style="text-align:center; font-size:12px; color:#888; margin-bottom:10px;">加密连接建立成功</div>
+        <div id="status-bar">正在寻找同步信号...</div>
         <div id="chat-box"></div>
         <div class="input-group">
-            <input type="text" id="ipt" placeholder="此刻你想说些什么..." autocomplete="off">
+            <input type="text" id="ipt" placeholder="输入你想说的..." autocomplete="off">
             <button id="send" onclick="doSend()">发送</button>
             <button onclick="location.reload()" style="background:transparent; color:#ff4d4d; border:none; font-size:12px; cursor:pointer;">离开</button>
         </div>
     </div>
 
     <script>
-        // 🚨 换用了完全没有任何限制的公用测试 Key，确保不会再报 400 错误
-        const pubnub = new PubNub({
-            publishKey: 'pub-c-6953f47e-8519-4b61-9c8a-7880927df0f6',
-            subscribeKey: 'sub-c-11234938-161d-4054-9544-33a88622ef87',
-            userId: "Soul_" + Math.random().toString(36).substring(7)
-        });
+        let peer, conn;
+        // 核心逻辑：利用时间戳生成唯一的“匹配信号对”
+        // 同一分钟内点击的人，一个人叫 'A_123'，另一个去连 'A_123'
+        const timeBucket = Math.floor(Date.now() / 30000); 
+        const myID = "soul_user_" + timeBucket;
+        const peerID = "soul_peer_" + timeBucket;
 
-        let currentRoom = "";
-
-        function goConnect() {
+        function startMatching() {
             document.getElementById('main-ui').style.display = 'none';
             document.getElementById('chat-container').style.display = 'flex';
             
-            // 💡 针对“万人级”的匹配逻辑：
-            // 将 1 分钟（60秒）作为一个时间切片。
-            // 只要你是这一分钟内点击的，就能进入这个时空房间。
-            const timeSeed = Math.floor(Date.now() / 60000); 
-            currentRoom = "universe_v9_" + timeSeed;
-
-            pubnub.subscribe({ channels: [currentRoom] });
+            // 这是一个巧妙的“双向奔赴”逻辑：
+            // A设备尝试成为服务端，B设备尝试成为客户端，谁先点谁就是服务端
+            peer = new Peer(myID);
             
-            pubnub.addListener({
-                message: function(m) {
-                    if (m.publisher !== pubnub.getUserId()) {
-                        renderMsg(m.message, false);
-                    }
-                },
-                status: function(s) {
-                    if (s.category === "PNConnectedCategory") {
-                        console.log("Connected to star system");
-                    }
-                }
+            peer.on('open', (id) => {
+                document.getElementById('status-bar').innerText = "已进入星空，等待灵魂感应...";
+                // 尝试连接对方
+                connectToPeer(peerID);
             });
 
-            document.getElementById('ipt').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') doSend();
+            // 如果有人连我，我就接受
+            peer.on('connection', (c) => {
+                conn = c;
+                setupChat();
+            });
+
+            // 如果 ID 冲突（说明有人占了 myID），那我就变成另一方去连他
+            peer.on('error', (err) => {
+                if (err.type === 'unavailable-id') {
+                    peer = new Peer(peerID);
+                    peer.on('open', () => {
+                        connectToPeer(myID);
+                    });
+                }
             });
         }
 
-        function renderMsg(text, isMe) {
+        function connectToPeer(targetID) {
+            const retry = setInterval(() => {
+                if (conn) { clearInterval(retry); return; }
+                const c = peer.connect(targetID);
+                c.on('open', () => {
+                    conn = c;
+                    setupChat();
+                    clearInterval(retry);
+                });
+            }, 2000);
+        }
+
+        function setupChat() {
+            document.getElementById('status-bar').innerText = "✨ 灵魂契合成功，现在可以聊天了";
+            conn.on('data', (data) => render(data, false));
+        }
+
+        function render(text, isMe) {
             const box = document.getElementById('chat-box');
             const div = document.createElement('div');
             div.className = 'msg ' + (isMe ? 'me' : 'other');
@@ -97,22 +113,13 @@
         function doSend() {
             const ipt = document.getElementById('ipt');
             const val = ipt.value.trim();
-            if (!val) return;
-            
-            // 先在本地显示
-            renderMsg(val, true);
-            
-            // 广播给房间内的其他人
-            pubnub.publish({ 
-                channel: currentRoom, 
-                message: val 
-            }, function(status, response) {
-                if (status.error) {
-                    alert("发送失败，请确认网络连接");
-                }
-            });
+            if (!val || !conn) return;
+            render(val, true);
+            conn.send(val); // 真正的 P2P 发送
             ipt.value = '';
         }
+
+        document.getElementById('ipt').onkeydown = (e) => { if(e.key==='Enter') doSend(); };
     </script>
 </body>
 </html>
