@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>自由的灵魂 - 自动匹配</title>
+    <title>自由的灵魂 - 即时匹配</title>
     <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.4.29.9.min.js"></script>
     <style>
         body { background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%); color: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; overflow: hidden; position: relative; }
@@ -16,12 +16,11 @@
         h1 { font-weight: 200; letter-spacing: 4px; font-size: 1.5rem; }
         .enter-btn { padding: 15px 40px; background: white; color: black; border: none; cursor: pointer; border-radius: 30px; font-weight: bold; font-size: 1rem; }
 
-        #chat-container { display: none; flex-direction: column; width: 92%; max-width: 500px; z-index: 20; height: 80vh; }
+        #chat-container { display: none; flex-direction: column; width: 92%; max-width: 500px; z-index: 20; height: 85vh; }
         #chat-box { width: 100%; flex: 1; background: rgba(255,255,255,0.08); overflow-y: auto; padding: 15px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; backdrop-filter: blur(15px); box-sizing: border-box; }
-        #input-area { width: 100%; display: flex; gap: 8px; opacity: 0.3; pointer-events: none; transition: 0.5s; }
+        #input-area { width: 100%; display: flex; gap: 8px; }
         #msg-input { flex: 1; padding: 12px; background: rgba(0,0,0,0.5); border: 1px solid #444; color: white; border-radius: 10px; font-size: 16px; outline: none; }
         .btn { padding: 10px 18px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
-        #send-btn { background: #5f91ff; color: white; }
     </style>
 </head>
 <body>
@@ -29,23 +28,22 @@
 
     <div id="main-ui">
         <h1>这里欢迎每一个渴望自由的灵魂</h1>
-        <button class="enter-btn" onclick="startMatching()">寻找缘分</button>
+        <button class="enter-btn" onclick="startChat()">寻找缘分</button>
     </div>
 
     <div id="chat-container">
         <div id="chat-box">
-            <div id="status" style="color: #aaa; text-align: center; font-size: 0.9rem; margin-top: 50%;">正在星空中寻找另一半灵魂...</div>
+            <div id="status" style="color: #5f91ff; text-align: center; font-size: 0.9rem; margin-bottom: 20px;">--- 已接入灵魂频道 ---</div>
         </div>
-        <div id="input-area" id="input-group">
+        <div id="input-area">
             <input type="text" id="msg-input" placeholder="输入你想说的..." onkeydown="if(event.keyCode==13) sendMsg()">
-            <button id="send-btn" class="btn" onclick="sendMsg()">发送</button>
+            <button id="send-btn" style="background: #5f91ff; color: white;" class="btn" onclick="sendMsg()">发送</button>
             <button style="background:rgba(255,255,255,0.1); color:#ccc" class="btn" onclick="location.reload()">离开</button>
         </div>
     </div>
 
     <script>
-        const lobbyChannel = "soul_lobby_v1"; // 匹配大厅
-        let privateChannel = null;
+        const myChannel = "global_soul_match_v2"; // 简化逻辑，直接进入实时大厅
         const myID = "Soul_" + Math.random().toString(36).substring(7);
 
         const pubnub = new PubNub({
@@ -54,49 +52,32 @@
             uuid: myID
         });
 
-        function startMatching() {
+        function startChat() {
             document.getElementById('main-ui').style.display = 'none';
             document.getElementById('chat-container').style.display = 'flex';
-            
-            // 订阅大厅并开启在线状态监听
-            pubnub.subscribe({ 
-                channels: [lobbyChannel],
-                withPresence: true 
-            });
+            pubnub.subscribe({ channels: [myChannel] });
         }
 
         pubnub.addListener({
-            presence: function(p) {
-                // 如果大厅里有两个或更多人，自动根据时间顺序配对
-                if (p.channel === lobbyChannel && p.occupancy >= 2) {
-                    // 简单的配对算法：前两个进入的人自动进入专属房间
-                    // 实际应用中会更复杂，这里我们让大家进入一个基于当前分钟的半私密房
-                    const pairId = Math.floor(Date.now() / 600000); // 每10分钟变换一次的基础ID
-                    privateChannel = "room_" + pairId;
-                    
-                    pubnub.subscribe({ channels: [privateChannel] });
-                    document.getElementById('status').innerHTML = "--- 缘分已连接 ---<br><small>此刻，星空下只有你们两人</small>";
-                    document.getElementById('input-area').style.opacity = "1";
-                    document.getElementById('input-area').style.pointerEvents = "auto";
-                }
-            },
             message: function(event) {
-                if (event.channel === privateChannel) {
-                    const box = document.getElementById('chat-box');
-                    const isMe = event.publisher === myID;
-                    const div = document.createElement('div');
-                    div.style.margin = "12px 0";
-                    div.innerHTML = `<span style="color:${isMe?'#5f91ff':'#ff9f43'}; font-weight:bold;">${isMe?'我':'缘分'}:</span> <span>${event.message.text}</span>`;
-                    box.appendChild(div);
-                    box.scrollTop = box.scrollHeight;
-                }
+                const box = document.getElementById('chat-box');
+                const isMe = event.publisher === myID;
+                const div = document.createElement('div');
+                div.style.margin = "12px 0";
+                div.style.textAlign = isMe ? "right" : "left";
+                div.innerHTML = `<div style="display:inline-block; padding:8px 12px; border-radius:10px; background:${isMe?'#5f91ff':'rgba(255,255,255,0.1)'};">
+                                    <small style="color:rgba(255,255,255,0.5); display:block; font-size:0.7rem;">${isMe?'我':'缘分'}</small>
+                                    ${event.message.text}
+                                 </div>`;
+                box.appendChild(div);
+                box.scrollTop = box.scrollHeight;
             }
         });
 
         function sendMsg() {
             const input = document.getElementById('msg-input');
-            if (input.value.trim() !== "" && privateChannel) {
-                pubnub.publish({ channel: privateChannel, message: { text: input.value } });
+            if (input.value.trim() !== "") {
+                pubnub.publish({ channel: myChannel, message: { text: input.value } });
                 input.value = "";
             }
         }
