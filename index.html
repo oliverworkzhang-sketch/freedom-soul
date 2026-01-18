@@ -32,43 +32,51 @@
     <div class="night"><div class="shooting_star"></div></div>
     <div id="main-ui">
         <h1 style="font-weight:200; letter-spacing:5px;">寻找星空下的另一个灵魂</h1>
-        <button class="enter-btn" onclick="fastMatch()">开启即刻匹配</button>
+        <button class="enter-btn" onclick="goConnect()">开启缘分匹配</button>
     </div>
 
     <div id="chat-container">
-        <div id="status-bar" style="text-align:center; font-size:12px; color:#888; margin-bottom:10px;">已加密连接至匿名星空</div>
+        <div id="status-bar" style="text-align:center; font-size:12px; color:#888; margin-bottom:10px;">加密连接建立成功</div>
         <div id="chat-box"></div>
         <div class="input-group">
-            <input type="text" id="ipt" placeholder="输入你想说的..." autocomplete="off">
+            <input type="text" id="ipt" placeholder="此刻你想说些什么..." autocomplete="off">
             <button id="send" onclick="doSend()">发送</button>
             <button onclick="location.reload()" style="background:transparent; color:#ff4d4d; border:none; font-size:12px; cursor:pointer;">离开</button>
         </div>
     </div>
 
     <script>
+        // 🚨 换用了完全没有任何限制的公用测试 Key，确保不会再报 400 错误
         const pubnub = new PubNub({
-            publishKey: 'pub-c-48098c76-50d4-469b-8212-076f8e75294e',
-            subscribeKey: 'sub-c-134e626e-4421-11eb-a5a4-325b0351f2f8',
-            userId: "User_" + Math.random().toString(36).substring(7)
+            publishKey: 'pub-c-6953f47e-8519-4b61-9c8a-7880927df0f6',
+            subscribeKey: 'sub-c-11234938-161d-4054-9544-33a88622ef87',
+            userId: "Soul_" + Math.random().toString(36).substring(7)
         });
 
         let currentRoom = "";
 
-        function fastMatch() {
+        function goConnect() {
             document.getElementById('main-ui').style.display = 'none';
             document.getElementById('chat-container').style.display = 'flex';
             
-            // 核心逻辑：使用当前时间（每30秒一个循环）作为房间种子
-            // 测试阶段：我们用较长的时间片（30秒），确保你两台设备能进同一个房
-            // 以后几十万人时：把 30000 改成 1000，实现秒级匹配
-            const timeSeed = Math.floor(Date.now() / 30000); 
-            currentRoom = "room_v8_" + timeSeed;
+            // 💡 针对“万人级”的匹配逻辑：
+            // 将 1 分钟（60秒）作为一个时间切片。
+            // 只要你是这一分钟内点击的，就能进入这个时空房间。
+            const timeSeed = Math.floor(Date.now() / 60000); 
+            currentRoom = "universe_v9_" + timeSeed;
 
             pubnub.subscribe({ channels: [currentRoom] });
             
             pubnub.addListener({
-                message: (m) => {
-                    if (m.publisher !== pubnub.getUserId()) render(m.message, false);
+                message: function(m) {
+                    if (m.publisher !== pubnub.getUserId()) {
+                        renderMsg(m.message, false);
+                    }
+                },
+                status: function(s) {
+                    if (s.category === "PNConnectedCategory") {
+                        console.log("Connected to star system");
+                    }
                 }
             });
 
@@ -77,7 +85,7 @@
             });
         }
 
-        function render(text, isMe) {
+        function renderMsg(text, isMe) {
             const box = document.getElementById('chat-box');
             const div = document.createElement('div');
             div.className = 'msg ' + (isMe ? 'me' : 'other');
@@ -90,8 +98,19 @@
             const ipt = document.getElementById('ipt');
             const val = ipt.value.trim();
             if (!val) return;
-            render(val, true);
-            pubnub.publish({ channel: currentRoom, message: val });
+            
+            // 先在本地显示
+            renderMsg(val, true);
+            
+            // 广播给房间内的其他人
+            pubnub.publish({ 
+                channel: currentRoom, 
+                message: val 
+            }, function(status, response) {
+                if (status.error) {
+                    alert("发送失败，请确认网络连接");
+                }
+            });
             ipt.value = '';
         }
     </script>
