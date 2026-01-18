@@ -3,86 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>自由的灵魂 - 诊断版</title>
+    <title>灵魂聊天室 - 修复版</title>
     <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.7.2.2.min.js"></script>
     <style>
-        body { background: #000; color: white; margin: 0; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; align-items: center; justify-content: center; }
-        #chat-container { display: none; width: 95%; max-width: 500px; height: 90vh; flex-direction: column; }
-        #chat-box { flex: 1; background: rgba(255,255,255,0.1); border-radius: 15px; padding: 15px; overflow-y: auto; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.2); }
-        .input-group { display: flex; gap: 10px; padding-bottom: 20px; }
-        input { flex: 1; padding: 12px; border-radius: 10px; border: none; background: #222; color: white; font-size: 16px; outline: none; }
-        button { padding: 10px 20px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; }
-        .me { color: #5f91ff; text-align: right; margin-bottom: 10px; }
-        .other { color: #ff9f43; text-align: left; margin-bottom: 10px; }
+        body { background: #050505; color: #ffffff; margin: 0; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; align-items: center; justify-content: center; overflow: hidden; }
+        #chat-container { display: flex; width: 95%; max-width: 500px; height: 90vh; flex-direction: column; position: relative; z-index: 100; }
+        #chat-box { flex: 1; background: rgba(255,255,255,0.05); border-radius: 15px; padding: 15px; overflow-y: auto; margin-bottom: 10px; border: 1px solid #333; display: block !important; }
+        .input-group { display: flex; gap: 10px; margin-bottom: 10px; }
+        input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #111; color: #fff; font-size: 16px; -webkit-appearance: none; }
+        button { padding: 10px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; background: #5f91ff; color: white; }
+        .msg { margin: 10px 0; padding: 8px 12px; border-radius: 8px; word-wrap: break-word; line-height: 1.5; display: block; }
+        .me { background: #1a3a5f; color: #fff; text-align: right; margin-left: 20%; }
+        .other { background: #333; color: #fff; text-align: left; margin-right: 20%; }
     </style>
 </head>
 <body>
-    <div id="setup">
-        <h1>正在启动灵魂引擎...</h1>
-        <button onclick="init()" id="startBtn" style="background:white; color:black;">点击进入</button>
-    </div>
-
     <div id="chat-container">
+        <div id="status-bar" style="font-size: 12px; color: #666; text-align: center; margin-bottom: 5px;">正在连接灵魂频道...</div>
         <div id="chat-box"></div>
         <div class="input-group">
-            <input type="text" id="msg" placeholder="输入消息...">
-            <button onclick="doSend()" style="background:#5f91ff; color:white;">发送</button>
+            <input type="text" id="msg" placeholder="输入你想说的..." autocomplete="off">
+            <button onclick="doSend()">发送</button>
         </div>
     </div>
 
     <script>
-        let pubnub;
-        const CHANNEL = "soul_match_final_test";
-        const MY_ID = "User_" + Math.random().toString(36).substring(7);
+        const CHANNEL = "soul_match_v3_stable";
+        const MY_ID = "Soul_" + Math.random().toString(36).substring(7);
+        
+        // 初始化 PubNub
+        const pubnub = new PubNub({
+            publishKey: 'pub-c-48098c76-50d4-469b-8212-076f8e75294e',
+            subscribeKey: 'sub-c-134e626e-4421-11eb-a5a4-325b0351f2f8',
+            userId: MY_ID
+        });
 
-        function init() {
-            // 检查 SDK 是否加载成功
-            if (typeof PubNub === 'undefined') {
-                alert("错误：网络拦截了聊天插件，请尝试关闭手机浏览器的‘广告过滤’或更换网络。");
-                return;
-            }
-
-            document.getElementById('setup').style.display = 'none';
-            document.getElementById('chat-container').style.display = 'flex';
-
-            // 重新初始化并强制开启 SSL 连接
-            pubnub = new PubNub({
-                publishKey: 'pub-c-48098c76-50d4-469b-8212-076f8e75294e',
-                subscribeKey: 'sub-c-134e626e-4421-11eb-a5a4-325b0351f2f8',
-                userId: MY_ID,
-                ssl: true
-            });
-
-            // 监听消息
-            pubnub.addListener({
-                message: function(m) {
-                    const box = document.getElementById('chat-box');
-                    const isMe = m.publisher === MY_ID;
-                    const div = document.createElement('div');
-                    div.className = isMe ? "me" : "other";
-                    div.innerHTML = `<strong>${isMe?'我':'TA'}:</strong> ${m.message.content}`;
-                    box.appendChild(div);
-                    box.scrollTop = box.scrollHeight;
-                }
-            });
-
-            // 订阅频道
-            pubnub.subscribe({ channels: [CHANNEL] });
+        // 渲染函数：将消息显示到屏幕上
+        function appendMsg(text, type) {
+            const box = document.getElementById('chat-box');
+            const div = document.createElement('div');
+            div.className = "msg " + type;
+            div.innerHTML = `<strong>${type === 'me' ? '我' : 'TA'}:</strong> ${text}`;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
         }
+
+        // 监听云端消息
+        pubnub.addListener({
+            message: function(m) {
+                // 如果是别人的消息，显示到左侧
+                if (m.publisher !== MY_ID) {
+                    appendMsg(m.message.content, 'other');
+                }
+            },
+            status: function(s) {
+                if (s.category === "PNConnectedCategory") {
+                    document.getElementById('status-bar').innerText = "● 已成功连接到星空";
+                }
+            }
+        });
+
+        pubnub.subscribe({ channels: [CHANNEL] });
 
         function doSend() {
             const input = document.getElementById('msg');
             const text = input.value.trim();
-            if(!text) return;
+            if (!text) return;
 
-            // 发送并捕获错误
+            // 1. 立即在本地显示，防止“消失”感
+            appendMsg(text, 'me');
+
+            // 2. 发送到云端
             pubnub.publish({
                 channel: CHANNEL,
                 message: { content: text }
             }).then(() => {
-                input.value = "";
-            }).catch((err) => {
-                alert("发送失败，错误代码：" + JSON.stringify(err));
+                input.value = ""; // 发送成功后清空
+                input.focus();
+            }).catch(e => {
+                alert("发送失败，请检查网络");
             });
         }
     </script>
